@@ -80,12 +80,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('updating user profile')
-	def updateSelf(self, user: KhUser, name: str, handle: str, privacy: str, icon: str, website: str, description: str) :
-		query = """
-			UPDATE kheina.public.users
-			SET
-			"""
-		
+	def updateSelf(self, user: KhUser, name: str, handle: str, privacy: str, icon: str, website: str, description: str) :		
 		updates = []
 		params = []
 
@@ -114,15 +109,15 @@ class Users(SqlInterface, Hashable) :
 			updates.append('description = %s')
 			params.append(description)
 
-		query += f"""
-			UPDATE kheina.public.users
-			SET {', '.join(updates)}
-			WHERE user_id = %s;
-			"""
-		params.append(user.user_id)
-
 		if updates :
+			query = f"""
+				UPDATE kheina.public.users
+				SET {', '.join(updates)}
+				WHERE user_id = %s;
+				"""
+			params.append(user.user_id)
+
 			self.query(query, params, commit=True)
-		
+
 		else :
 			raise BadRequest('At least one of the following are required: name, handle, privacy, icon, website, description.')
