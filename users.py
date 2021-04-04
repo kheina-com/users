@@ -91,7 +91,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('updating user profile')
-	def updateSelf(self, user: KhUser, name: str, privacy: Privacy, icon: str, website: str, description: str) :		
+	def updateSelf(self, user: KhUser, name: str, privacy: Privacy, icon: str, website: str, description: str) :
 		updates = []
 		params = []
 
