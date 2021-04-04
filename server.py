@@ -1,4 +1,5 @@
-from kh_common.server import Request, ServerApp, UJSONResponse
+from kh_common.server import Request, ServerApp, NoContentResponse, UJSONResponse
+from kh_common.exceptions.http_error import HttpErrorHandler, NotFound
 from kh_common.caching import KwargsCache
 from models import UpdateSelf
 from users import Users
@@ -34,9 +35,17 @@ async def v1FetchSelf(req: Request) :
 async def v1UpdateSelf(req: Request, body: UpdateSelf) :
 	req.user.authenticated()
 
-	return UJSONResponse(
-		users.getSelf(req.user)
+	users.updateSelf(
+		req.user,
+		body.name,
+		body.handle,
+		body.privacy,
+		body.icon,
+		body.website,
+		body.description,
 	)
+
+	return NoContentResponse
 
 
 if __name__ == '__main__' :

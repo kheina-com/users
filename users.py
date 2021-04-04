@@ -1,4 +1,4 @@
-from kh_common.exceptions.http_error import HttpErrorHandler, NotFound
+from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
 from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
@@ -11,6 +11,11 @@ class Users(SqlInterface, Hashable) :
 	def __init__(self) :
 		Hashable.__init__(self)
 		SqlInterface.__init__(self)
+
+
+	def _validatePostId(self, post_id: str) :
+		if len(post_id) != 8 :
+			raise BadRequest('the given post id is invalid.', logdata={ 'post_id': post_id })
 
 
 	@ArgsCache(600)
@@ -97,6 +102,7 @@ class Users(SqlInterface, Hashable) :
 			params.append(privacy)
 
 		if icon :
+			self._validatePostId(icon)
 			updates.append('icon = %s')
 			params.append(icon)
 
@@ -117,4 +123,6 @@ class Users(SqlInterface, Hashable) :
 
 		if updates :
 			self.query(query, params, commit=True)
-			return True
+		
+		else :
+			raise BadRequest('At least one of the following are required: name, handle, privacy, icon, website, description.')
