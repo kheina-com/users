@@ -17,7 +17,7 @@ async def shutdown() :
 @KwargsCache(60)
 async def v1FetchUser(handle: str) :
 	return UJSONResponse(
-		Users.getUser(handle)
+		users.getUser(handle)
 	)
 
 
@@ -26,7 +26,7 @@ async def v1FetchSelf(req: Request) :
 	req.user.authenticated()
 
 	return UJSONResponse(
-		Users.getSelf(req.user)
+		users.getSelf(req.user)
 	)
 
 
@@ -35,7 +35,7 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) :
 	req.user.authenticated()
 
 	return UJSONResponse(
-		Users.getSelf(req.user)
+		users.getSelf(req.user)
 	)
 
 
