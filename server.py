@@ -39,7 +39,6 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) :
 	users.updateSelf(
 		req.user,
 		body.name,
-		body.handle,
 		body.privacy,
 		body.icon,
 		body.website,

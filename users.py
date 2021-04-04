@@ -3,6 +3,7 @@ from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 from kh_common.auth import KhUser
+from models import Privacy
 from typing import Dict
 
 
@@ -16,6 +17,16 @@ class Users(SqlInterface, Hashable) :
 	def _validatePostId(self, post_id: str) :
 		if len(post_id) != 8 :
 			raise BadRequest('the given post id is invalid.', logdata={ 'post_id': post_id })
+
+
+	def _validateDescription(self, description: str) :
+		if len(description) > 10000 :
+			raise BadRequest('the given description is over the 10,000 character limit.', description=description)
+
+
+	def _validateText(self, text: str) :
+		if len(text) > 100 :
+			raise BadRequest('the given value is over the 100 character limit.', text=text)
 
 
 	@ArgsCache(600)
@@ -80,21 +91,18 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('updating user profile')
-	def updateSelf(self, user: KhUser, name: str, handle: str, privacy: str, icon: str, website: str, description: str) :		
+	def updateSelf(self, user: KhUser, name: str, privacy: Privacy, icon: str, website: str, description: str) :		
 		updates = []
 		params = []
 
 		if name :
+			self._validateText(name)
 			updates.append('display_name = %s')
 			params.append(name)
 
-		if handle :
-			updates.append('handle = %s')
-			params.append(handle)
-
 		if privacy :
 			updates.append('privacy_id = privacy_to_id(%s)')
-			params.append(privacy)
+			params.append(Privacy.name)
 
 		if icon :
 			self._validatePostId(icon)
@@ -102,10 +110,12 @@ class Users(SqlInterface, Hashable) :
 			params.append(icon)
 
 		if website :
+			self._validateText(website)
 			updates.append('website = %s')
 			params.append(website)
 
 		if description :
+			self._validateDescription(description)
 			updates.append('description = %s')
 			params.append(description)
 
