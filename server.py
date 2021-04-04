@@ -1,6 +1,7 @@
-from kh_common.server import Request, ServerApp, NoContentResponse, UJSONResponse
+from kh_common.server import Request, ServerApp, UJSONResponse
 from kh_common.exceptions.http_error import HttpErrorHandler, NotFound
 from kh_common.caching import KwargsCache
+from fastapi.responses import Response
 from models import UpdateSelf
 from users import Users
 
@@ -45,7 +46,7 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) :
 		body.description,
 	)
 
-	return NoContentResponse
+	return Response(None, status_code=204)
 
 
 if __name__ == '__main__' :
