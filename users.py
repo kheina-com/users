@@ -32,7 +32,7 @@ class Users(SqlInterface, Hashable) :
 			FROM kheina.public.users
 			WHERE handle = %s;
 			""",
-			(handle),
+			(handle,),
 			fetch_one=True,
 		)
 
@@ -59,7 +59,7 @@ class Users(SqlInterface, Hashable) :
 			FROM kheina.public.users
 			WHERE user_id = %s;
 			""",
-			(user.user_id),
+			(user.user_id,),
 			fetch_one=True,
 		)
 
