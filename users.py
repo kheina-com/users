@@ -102,7 +102,7 @@ class Users(SqlInterface, Hashable) :
 
 		if privacy :
 			updates.append('privacy_id = privacy_to_id(%s)')
-			params.append(privacy)
+			params.append(privacy.name)
 
 		if icon :
 			self._validatePostId(icon)
