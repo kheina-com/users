@@ -46,9 +46,9 @@ class Users(SqlInterface, Hashable) :
 		data = self.query("""
 			SELECT display_name, handle, privacy_id, icon, website, created_on, description
 			FROM kheina.public.users
-			WHERE handle = lower(%s);
+			WHERE lower(handle) = %s;
 			""",
-			(handle,),
+			(handle.lower(),),
 			fetch_one=True,
 		)
 
