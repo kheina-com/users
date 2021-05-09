@@ -166,4 +166,5 @@ class Users(SqlInterface, Hashable) :
 				'description': row[6],
 				'tags': row[7],
 			}
+			for row in data
 		]
