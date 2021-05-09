@@ -144,11 +144,8 @@ class Users(SqlInterface, Hashable) :
 				users.icon,
 				users.website,
 				users.created_on,
-				users.description,
-				array_agg(tags.tag)
+				users.description
 			FROM kheina.public.users
-				INNER JOIN kheina.public.tags
-					ON tags.owner = users.user_id
 			GROUP BY users.user_id
 			""",
 			fetch_all=True,
@@ -164,7 +161,6 @@ class Users(SqlInterface, Hashable) :
 				'website': row[4],
 				'created': str(row[5]),
 				'description': row[6],
-				'tags': row[7],
 			}
 			for row in data
 		]
