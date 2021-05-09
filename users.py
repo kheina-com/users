@@ -149,6 +149,7 @@ class Users(SqlInterface, Hashable) :
 			FROM kheina.public.users
 				INNER JOIN kheina.public.tags
 					ON tags.owner = users.user_id
+			GROUP BY users.user_id
 			""",
 			fetch_all=True,
 		)
