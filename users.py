@@ -84,6 +84,7 @@ class Users(SqlInterface, Hashable) :
 			'handle': data[1],
 			'privacy': self._get_privacy_map()[data[2]],
 			'icon': data[3],
+			'banner': None,
 			'website': data[4],
 			'created': str(data[5]),
 			'description': data[6],
@@ -131,3 +132,37 @@ class Users(SqlInterface, Hashable) :
 
 		else :
 			raise BadRequest('At least one of the following are required: name, handle, privacy, icon, website, description.')
+
+
+	@HttpErrorHandler('fetching all users')
+	def getUsers(self) :
+		data = self.query("""
+			SELECT
+				users.display_name,
+				users.handle,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				array_agg(tags.tag)
+			FROM kheina.public.users
+				INNER JOIN kheina.public.tags
+					ON tags.owner = users.user_id
+			""",
+			fetch_all=True,
+		)
+
+		return [
+			{
+				'name': row[0],
+				'handle': row[1],
+				'privacy': self._get_privacy_map()[row[2]],
+				'icon': row[3],
+				'banner': None,
+				'website': row[4],
+				'created': str(row[5]),
+				'description': row[6],
+				'tags': row[7],
+			}
+		]
