@@ -1,4 +1,5 @@
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
+from psycopg2.errors import UniqueViolation
 from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
@@ -44,7 +45,16 @@ class Users(SqlInterface, Hashable) :
 	@HttpErrorHandler('retrieving user')
 	def getUser(self, handle: str) -> Dict[str, str] :
 		data = self.query("""
-			SELECT display_name, handle, privacy_id, icon, website, created_on, description
+			SELECT
+				users.display_name,
+				users.handle,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				users.mod,
+				users.admin
 			FROM kheina.public.users
 			WHERE lower(handle) = %s;
 			""",
@@ -61,6 +71,8 @@ class Users(SqlInterface, Hashable) :
 				'website': data[4],
 				'created': str(data[5]),
 				'description': data[6],
+				'mod': data[7],
+				'admin': data[8],
 			}
 
 		else :
@@ -71,7 +83,16 @@ class Users(SqlInterface, Hashable) :
 	@HttpErrorHandler("retrieving user's own profile")
 	def getSelf(self, user: KhUser) -> Dict[str, str] :
 		data = self.query("""
-			SELECT display_name, handle, privacy_id, icon, website, created_on, description
+			SELECT
+				users.display_name,
+				users.handle,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				users.mod,
+				users.admin
 			FROM kheina.public.users
 			WHERE user_id = %s;
 			""",
@@ -88,6 +109,8 @@ class Users(SqlInterface, Hashable) :
 			'website': data[4],
 			'created': str(data[5]),
 			'description': data[6],
+			'mod': data[7],
+			'admin': data[8],
 		}
 
 
@@ -144,9 +167,10 @@ class Users(SqlInterface, Hashable) :
 				users.icon,
 				users.website,
 				users.created_on,
-				users.description
+				users.description,
+				users.mod,
+				users.admin
 			FROM kheina.public.users
-			GROUP BY users.user_id
 			""",
 			fetch_all=True,
 		)
@@ -161,6 +185,20 @@ class Users(SqlInterface, Hashable) :
 				'website': row[4],
 				'created': str(row[5]),
 				'description': row[6],
+				'mod': row[7],
+				'admin': row[8],
 			}
 			for row in data
 		]
+
+
+	@HttpErrorHandler('setting mod')
+	def setMod(self, handle: str, mod: bool) :
+		self.query("""
+			UPDATE kheina.public.users
+				SET mod = %s
+			WHERE handle = %s
+			""",
+			(mod, handle),
+			commit=True,
+		)

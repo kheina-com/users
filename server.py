@@ -1,9 +1,8 @@
 from kh_common.server import Request, ServerApp, UJSONResponse
-from kh_common.exceptions.http_error import HttpErrorHandler, NotFound
 from kh_common.caching import KwargsCache
 from fastapi.responses import Response
 from kh_common.models import Scope
-from models import UpdateSelf
+from models import SetMod, UpdateSelf
 from users import Users
 
 
@@ -55,6 +54,13 @@ async def v1FetchUsers(req: Request) :
 	return UJSONResponse(
 		users.getUsers()
 	)
+
+
+@app.post('/v1/set_mod')
+async def v1SetMod(req: Request, body: SetMod) :
+	req.user.verify_scope(Scope.admin)
+	users.setMod(body.handle, body.mod)
+	return Response(None, status_code=204)
 
 
 if __name__ == '__main__' :

@@ -14,3 +14,8 @@ class UpdateSelf(BaseModel) :
 	icon: str = None
 	website: str = None
 	description: str = None
+
+
+class SetMod(BaseModel) :
+	handle: str
+	mod: bool
