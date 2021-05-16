@@ -54,7 +54,8 @@ class Users(SqlInterface, Hashable) :
 				users.created_on,
 				users.description,
 				users.mod,
-				users.admin
+				users.admin,
+				users.verified
 			FROM kheina.public.users
 			WHERE lower(handle) = %s;
 			""",
@@ -73,6 +74,7 @@ class Users(SqlInterface, Hashable) :
 				'description': data[6],
 				'mod': data[7],
 				'admin': data[8],
+				'verified': data[9],
 			}
 
 		else :
@@ -92,7 +94,8 @@ class Users(SqlInterface, Hashable) :
 				users.created_on,
 				users.description,
 				users.mod,
-				users.admin
+				users.admin,
+				users.verified
 			FROM kheina.public.users
 			WHERE user_id = %s;
 			""",
@@ -111,6 +114,7 @@ class Users(SqlInterface, Hashable) :
 			'description': data[6],
 			'mod': data[7],
 			'admin': data[8],
+			'verified': data[9],
 		}
 
 
@@ -169,7 +173,8 @@ class Users(SqlInterface, Hashable) :
 				users.created_on,
 				users.description,
 				users.mod,
-				users.admin
+				users.admin,
+				users.verified
 			FROM kheina.public.users
 			""",
 			fetch_all=True,
@@ -187,6 +192,7 @@ class Users(SqlInterface, Hashable) :
 				'description': row[6],
 				'mod': row[7],
 				'admin': row[8],
+				'verified': row[9],
 			}
 			for row in data
 		]
