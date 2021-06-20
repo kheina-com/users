@@ -1,11 +1,11 @@
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
+from kh_common.models.privacy import UserPrivacy
 from kh_common.models.verified import Verified
 from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 from kh_common.models.user import User
 from kh_common.auth import KhUser
-from models import Privacy
 from typing import Dict
 
 
@@ -39,7 +39,7 @@ class Users(SqlInterface, Hashable) :
 			""",
 			fetch_all=True,
 		)
-		return { x[0]: Verified[x[1]] for x in data }
+		return { x[0]: UserPrivacy[x[1]] for x in data if x[1] in UserPrivacy.__members__ }
 
 
 	# cache on endpoint to prevent repeated 404s
@@ -139,7 +139,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('updating user profile')
-	def updateSelf(self, user: KhUser, name: str, privacy: Privacy, icon: str, website: str, description: str) :
+	def updateSelf(self, user: KhUser, name: str, privacy: UserPrivacy, icon: str, website: str, description: str) :
 		updates = []
 		params = []
 

@@ -1,16 +1,10 @@
+from kh_common.models.privacy import UserPrivacy
 from pydantic import BaseModel
-from enum import Enum, unique
-
-
-@unique
-class Privacy(Enum) :
-	public: str = 'public'
-	private: str = 'private'
 
 
 class UpdateSelf(BaseModel) :
 	name: str = None
-	privacy: Privacy = None
+	privacy: UserPrivacy = None
 	icon: str = None
 	website: str = None
 	description: str = None
