@@ -1,8 +1,9 @@
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
-from psycopg2.errors import UniqueViolation
+from kh_common.models.verified import Verified
 from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
+from kh_common.models.user import User
 from kh_common.auth import KhUser
 from models import Privacy
 from typing import Dict
@@ -17,7 +18,7 @@ class Users(SqlInterface, Hashable) :
 
 	def _validatePostId(self, post_id: str) :
 		if len(post_id) != 8 :
-			raise BadRequest('the given post id is invalid.', logdata={ 'post_id': post_id })
+			raise BadRequest('the given post id is invalid.', post_id=post_id)
 
 
 	def _validateDescription(self, description: str) :
@@ -38,7 +39,7 @@ class Users(SqlInterface, Hashable) :
 			""",
 			fetch_all=True,
 		)
-		return dict(data)
+		return { x[0]: Verified[x[1]] for x in data }
 
 
 	# cache on endpoint to prevent repeated 404s
@@ -64,18 +65,28 @@ class Users(SqlInterface, Hashable) :
 		)
 
 		if data :
-			return {
-				'name': data[0],
-				'handle': data[1],
-				'privacy': self._get_privacy_map()[data[2]],
-				'icon': data[3],
-				'website': data[4],
-				'created': str(data[5]),
-				'description': data[6],
-				'mod': data[7],
-				'admin': data[8],
-				'verified': data[9],
-			}
+			verified = None
+
+			if data[8] :
+				verified = Verified.admin
+
+			elif data[7] :
+				verified = Verified.mod
+
+			elif data[9] :
+				verified = Verified.artist
+
+			return User(
+				name = data[0],
+				handle = data[1],
+				privacy = self._get_privacy_map()[data[2]],
+				icon = data[3],
+				banner = None,
+				website = data[4],
+				created = data[5],
+				description = data[6],
+				verified = verified,
+			)
 
 		else :
 			raise NotFound('no data was found for the provided user.')
@@ -103,19 +114,28 @@ class Users(SqlInterface, Hashable) :
 			fetch_one=True,
 		)
 
-		return {
-			'name': data[0],
-			'handle': data[1],
-			'privacy': self._get_privacy_map()[data[2]],
-			'icon': data[3],
-			'banner': None,
-			'website': data[4],
-			'created': str(data[5]),
-			'description': data[6],
-			'mod': data[7],
-			'admin': data[8],
-			'verified': data[9],
-		}
+		verified = None
+
+		if data[8] :
+			verified = Verified.admin
+
+		elif data[7] :
+			verified = Verified.mod
+
+		elif data[9] :
+			verified = Verified.artist
+
+		return User(
+			name = data[0],
+			handle = data[1],
+			privacy = self._get_privacy_map()[data[2]],
+			icon = data[3],
+			banner = None,
+			website = data[4],
+			created = data[5],
+			description = data[6],
+			verified = verified,
+		)
 
 
 	@HttpErrorHandler('updating user profile')
@@ -181,19 +201,21 @@ class Users(SqlInterface, Hashable) :
 		)
 
 		return [
-			{
-				'name': row[0],
-				'handle': row[1],
-				'privacy': self._get_privacy_map()[row[2]],
-				'icon': row[3],
-				'banner': None,
-				'website': row[4],
-				'created': str(row[5]),
-				'description': row[6],
-				'mod': row[7],
-				'admin': row[8],
-				'verified': row[9],
-			}
+			User(
+				name = data[0],
+				handle = data[1],
+				privacy = self._get_privacy_map()[data[2]],
+				icon = data[3],
+				banner = None,
+				website = data[4],
+				created = data[5],
+				description = data[6],
+				verified = Verified.admin if row[8] else (
+					Verified.mod if row[7] else (
+						Verified.artist if row[9] else None
+					)
+				)
+			)
 			for row in data
 		]
 

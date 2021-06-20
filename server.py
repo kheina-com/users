@@ -1,7 +1,7 @@
-from kh_common.server import Request, ServerApp, UJSONResponse
+from kh_common.server import JsonResponse, NoContentResponse, Request, ServerApp
 from kh_common.caching import KwargsCache
+from kh_common.models.auth import Scope
 from fastapi.responses import Response
-from kh_common.models import Scope
 from models import SetMod, UpdateSelf
 from users import Users
 
@@ -18,23 +18,23 @@ async def shutdown() :
 @app.get('/v1/fetch_user/{handle}')
 @KwargsCache(60)
 async def v1FetchUser(handle: str) :
-	return UJSONResponse(
+	return JsonResponse(
 		users.getUser(handle)
 	)
 
 
 @app.get('/v1/fetch_self')
 async def v1FetchSelf(req: Request) :
-	req.user.authenticated()
+	await req.user.authenticated()
 
-	return UJSONResponse(
+	return JsonResponse(
 		users.getSelf(req.user)
 	)
 
 
 @app.post('/v1/update_self')
 async def v1UpdateSelf(req: Request, body: UpdateSelf) :
-	req.user.authenticated()
+	await req.user.authenticated()
 
 	users.updateSelf(
 		req.user,
@@ -45,22 +45,22 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) :
 		body.description,
 	)
 
-	return Response(None, status_code=204)
+	return NoContentResponse
 
 
 @app.get('/v1/all_users')
 async def v1FetchUsers(req: Request) :
-	req.user.verify_scope(Scope.admin)
-	return UJSONResponse(
+	await req.user.verify_scope(Scope.admin)
+	return JsonResponse(
 		users.getUsers()
 	)
 
 
 @app.post('/v1/set_mod')
 async def v1SetMod(req: Request, body: SetMod) :
-	req.user.verify_scope(Scope.admin)
+	await req.user.verify_scope(Scope.admin)
 	users.setMod(body.handle, body.mod)
-	return Response(None, status_code=204)
+	return NoContentResponse
 
 
 if __name__ == '__main__' :
