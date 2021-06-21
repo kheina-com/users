@@ -1,4 +1,4 @@
-from kh_common.server import JsonResponse, NoContentResponse, Request, ServerApp
+from kh_common.server import NoContentResponse, Request, ServerApp
 from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
 from kh_common.models.user import User
@@ -19,18 +19,13 @@ async def shutdown() :
 @app.get('/v1/fetch_user/{handle}', responses={ 200: { 'model': User } })
 @KwargsCache(60)
 async def v1FetchUser(handle: str) :
-	return JsonResponse(
-		users.getUser(handle)
-	)
+	return users.getUser(handle)
 
 
 @app.get('/v1/fetch_self', responses={ 200: { 'model': User } })
 async def v1FetchSelf(req: Request) -> User :
 	await req.user.authenticated()
-
-	return JsonResponse(
-		users.getSelf(req.user)
-	)
+	return users.getSelf(req.user)
 
 
 @app.post('/v1/update_self', responses={ 204: { 'model': None } })
@@ -52,9 +47,7 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) -> None :
 @app.get('/v1/all_users', responses={ 200: { 'model': List[User] } })
 async def v1FetchUsers(req: Request) -> List[User] :
 	await req.user.verify_scope(Scope.admin)
-	return JsonResponse(
-		users.getUsers()
-	)
+	return users.getUsers()
 
 
 @app.post('/v1/set_mod', responses={ 204: { 'model': None } })
