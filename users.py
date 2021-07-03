@@ -120,7 +120,7 @@ class Users(SqlInterface, Hashable) :
 	@HttpErrorHandler('retrieving user')
 	def getUser(self, user: KhUser, handle: str) -> User :
 		return User(
-			following = handle.ower() in self._get_followers(user.user_id),
+			following = handle.lower() in self._get_followers(user.user_id),
 			**self._get_user(handle),
 		)
 
