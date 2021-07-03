@@ -13,3 +13,7 @@ class UpdateSelf(BaseModel) :
 class SetMod(BaseModel) :
 	handle: str
 	mod: bool
+
+
+class Follow(BaseModel) :
+	handle: str
