@@ -28,7 +28,7 @@ async def v1FetchSelf(req: Request) -> User :
 	return users.getSelf(req.user)
 
 
-@app.post('/v1/update_self', responses={ 204: { 'model': None }, 200: None })
+@app.post('/v1/update_self', responses={ 204: { 'model': None } }, status_code=204)
 async def v1UpdateSelf(req: Request, body: UpdateSelf) -> None :
 	await req.user.authenticated()
 
@@ -44,14 +44,16 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) -> None :
 	return NoContentResponse
 
 
-@app.post('/v1/follow_user', responses={ 204: { 'model': None }, 200: None })
+@app.post('/v1/follow_user', responses={ 204: { 'model': None } }, status_code=204)
 async def v1FollowUser(req: Request, body: Follow) :
-	return users.followUser(req.user, body.handle)
+	users.followUser(req.user, body.handle)
+	return NoContentResponse
 
 
-@app.post('/v1/unfollow_user', responses={ 204: { 'model': None }, 200: None })
+@app.post('/v1/unfollow_user', responses={ 204: { 'model': None } }, status_code=204)
 async def v1UnfollowUser(req: Request, body: Follow) :
-	return users.unfollowUser(req.user, body.handle)
+	users.unfollowUser(req.user, body.handle)
+	return NoContentResponse
 
 
 @app.get('/v1/all_users', responses={ 200: { 'model': List[User] } })
@@ -60,7 +62,7 @@ async def v1FetchUsers(req: Request) -> List[User] :
 	return users.getUsers(req.user)
 
 
-@app.post('/v1/set_mod', responses={ 204: { 'model': None }, 200: None })
+@app.post('/v1/set_mod', responses={ 204: { 'model': None } }, status_code=204)
 async def v1SetMod(req: Request, body: SetMod) -> None :
 	await req.user.verify_scope(Scope.admin)
 	users.setMod(body.handle, body.mod)
