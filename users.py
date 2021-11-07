@@ -79,6 +79,7 @@ class Users(SqlInterface, Hashable) :
 				users.website,
 				users.created_on,
 				users.description,
+				users.banner,
 				users.mod,
 				users.admin,
 				users.verified
@@ -92,13 +93,13 @@ class Users(SqlInterface, Hashable) :
 		if data :
 			verified = None
 
-			if data[8] :
+			if data[9] :
 				verified = Verified.admin
 
-			elif data[7] :
+			elif data[8] :
 				verified = Verified.mod
 
-			elif data[9] :
+			elif data[10] :
 				verified = Verified.artist
 
 			return {
@@ -106,7 +107,7 @@ class Users(SqlInterface, Hashable) :
 				'handle': data[1],
 				'privacy': self._get_privacy_map()[data[2]],
 				'icon': data[3],
-				'banner': None,
+				'banner': data[7],
 				'website': data[4],
 				'created': data[5],
 				'description': data[6],
@@ -172,6 +173,7 @@ class Users(SqlInterface, Hashable) :
 				users.website,
 				users.created_on,
 				users.description,
+				users.banner,
 				users.mod,
 				users.admin,
 				users.verified
@@ -184,13 +186,13 @@ class Users(SqlInterface, Hashable) :
 
 		verified = None
 
-		if data[8] :
+		if data[9] :
 			verified = Verified.admin
 
-		elif data[7] :
+		elif data[8] :
 			verified = Verified.mod
 
-		elif data[9] :
+		elif data[10] :
 			verified = Verified.artist
 
 		return User(
@@ -198,7 +200,7 @@ class Users(SqlInterface, Hashable) :
 			handle = data[1],
 			privacy = self._get_privacy_map()[data[2]],
 			icon = data[3],
-			banner = None,
+			banner = data[7],
 			website = data[4],
 			created = data[5],
 			description = data[6],
@@ -260,6 +262,7 @@ class Users(SqlInterface, Hashable) :
 				users.website,
 				users.created_on,
 				users.description,
+				users.banner,
 				users.mod,
 				users.admin,
 				users.verified
@@ -274,14 +277,14 @@ class Users(SqlInterface, Hashable) :
 				handle = row[1],
 				privacy = self._get_privacy_map()[row[2]],
 				icon = row[3],
-				banner = None,
+				banner = row[7],
 				website = row[4],
 				created = row[5],
 				description = row[6],
 				following = row[1].lower() in self._get_followers(user.user_id),
-				verified = Verified.admin if row[8] else (
-					Verified.mod if row[7] else (
-						Verified.artist if row[9] else None
+				verified = Verified.admin if row[9] else (
+					Verified.mod if row[8] else (
+						Verified.artist if row[10] else None
 					)
 				)
 			)
