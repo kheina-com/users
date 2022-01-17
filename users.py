@@ -53,7 +53,7 @@ class Users(SqlInterface, Hashable) :
 	def _get_badge_map(self) -> Dict[str, str] :
 		data = self.query("""
 			SELECT badge_id, emoji, label
-			FROM kheina.public.privacy;
+			FROM kheina.public.badges;
 			""",
 			fetch_all=True,
 		)
