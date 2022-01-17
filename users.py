@@ -1,11 +1,11 @@
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
+from kh_common.caching import ArgsCache, SimpleCache
 from kh_common.models.privacy import UserPrivacy
 from kh_common.models.verified import Verified
-from kh_common.caching import ArgsCache
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
-from kh_common.models.user import User
 from kh_common.auth import KhUser
+from models import Badge, User
 from typing import Dict, Set
 
 
@@ -38,7 +38,7 @@ class Users(SqlInterface, Hashable) :
 		return self._cleanText(text)
 
 
-	@ArgsCache(600)
+	@SimpleCache(600)
 	def _get_privacy_map(self) -> Dict[str, str] :
 		data = self.query("""
 			SELECT privacy_id, type
@@ -47,6 +47,17 @@ class Users(SqlInterface, Hashable) :
 			fetch_all=True,
 		)
 		return { x[0]: UserPrivacy[x[1]] for x in data if x[1] in UserPrivacy.__members__ }
+
+
+	@SimpleCache(600)
+	def _get_badge_map(self) -> Dict[str, str] :
+		data = self.query("""
+			SELECT badge_id, emoji, label
+			FROM kheina.public.privacy;
+			""",
+			fetch_all=True,
+		)
+		return { x[0]: Badge(emoji=x[1], label=x[2]) for x in data }
 
 
 	@ArgsCache(10)
@@ -82,9 +93,24 @@ class Users(SqlInterface, Hashable) :
 				users.banner,
 				users.mod,
 				users.admin,
-				users.verified
+				users.verified,
+				array_agg(user_badge.badge_id)
 			FROM kheina.public.users
-			WHERE lower(handle) = %s;
+				LEFT JOIN kheina.public.user_badge
+					ON user_badge.user_id = users.user_id
+			WHERE lower(users.handle) = %s
+			GROUP BY
+				users.handle,
+				users.display_name,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				users.banner,
+				users.mod,
+				users.admin,
+				users.verified;
 			""",
 			(handle.lower(),),
 			fetch_one=True,
@@ -112,6 +138,7 @@ class Users(SqlInterface, Hashable) :
 				'created': data[5],
 				'description': data[6],
 				'verified': verified,
+				'badges': list(filter(None, map(self._get_badge_map().get, data[11]))),
 			}
 
 		else :
@@ -176,9 +203,25 @@ class Users(SqlInterface, Hashable) :
 				users.banner,
 				users.mod,
 				users.admin,
-				users.verified
+				users.verified,
+				array_agg(user_badge.badge_id)
 			FROM kheina.public.users
-			WHERE user_id = %s;
+				LEFT JOIN kheina.public.user_badge
+					ON user_badge.user_id = users.user_id
+			WHERE user_id = %s
+			GROUP BY
+				users.user_id,
+				users.handle,
+				users.display_name,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				users.banner,
+				users.mod,
+				users.admin,
+				users.verified;
 			""",
 			(user.user_id,),
 			fetch_one=True,
@@ -205,6 +248,7 @@ class Users(SqlInterface, Hashable) :
 			created = data[5],
 			description = data[6],
 			verified = verified,
+			badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
 		)
 
 
@@ -265,8 +309,23 @@ class Users(SqlInterface, Hashable) :
 				users.banner,
 				users.mod,
 				users.admin,
-				users.verified
+				users.verified,
+				array_agg(user_badge.badge_id)
 			FROM kheina.public.users
+				LEFT JOIN kheina.public.user_badge
+					ON user_badge.user_id = users.user_id
+			GROUP BY
+				users.handle,
+				users.display_name,
+				users.privacy_id,
+				users.icon,
+				users.website,
+				users.created_on,
+				users.description,
+				users.banner,
+				users.mod,
+				users.admin,
+				users.verified;
 			""",
 			fetch_all=True,
 		)
@@ -282,11 +341,12 @@ class Users(SqlInterface, Hashable) :
 				created = row[5],
 				description = row[6],
 				following = row[1].lower() in self._get_followers(user.user_id),
+				badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
 				verified = Verified.admin if row[9] else (
 					Verified.mod if row[8] else (
 						Verified.artist if row[10] else None
 					)
-				)
+				),
 			)
 			for row in data
 		]

@@ -46,12 +46,14 @@ async def v1UpdateSelf(req: Request, body: UpdateSelf) -> None :
 
 @app.post('/v1/follow_user', responses={ 204: { 'model': None } }, status_code=204)
 async def v1FollowUser(req: Request, body: Follow) :
+	await req.user.authenticated()
 	users.followUser(req.user, body.handle)
 	return NoContentResponse
 
 
 @app.post('/v1/unfollow_user', responses={ 204: { 'model': None } }, status_code=204)
 async def v1UnfollowUser(req: Request, body: Follow) :
+	await req.user.authenticated()
 	users.unfollowUser(req.user, body.handle)
 	return NoContentResponse
 
