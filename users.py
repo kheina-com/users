@@ -341,7 +341,7 @@ class Users(SqlInterface, Hashable) :
 				created = row[5],
 				description = row[6],
 				following = row[1].lower() in self._get_followers(user.user_id),
-				badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
+				badges = list(filter(None, map(self._get_badge_map().get, row[11]))),
 				verified = Verified.admin if row[9] else (
 					Verified.mod if row[8] else (
 						Verified.artist if row[10] else None
