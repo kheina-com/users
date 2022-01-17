@@ -1,8 +1,7 @@
 from kh_common.server import NoContentResponse, Request, ServerApp
-from models import Follow, SetMod, UpdateSelf
+from models import Follow, SetMod, UpdateSelf, User
 from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
-from kh_common.models.user import User
 from typing import List
 from users import Users
 
