@@ -382,7 +382,7 @@ class Users(SqlInterface, Hashable) :
 			(user_id, badge_id)
 			VALUES
 			(%s, %s);
-			"""
+			""",
 			(user.user_id, badge_id),
 			commit=True,
 		)
@@ -400,7 +400,7 @@ class Users(SqlInterface, Hashable) :
 			DELETE FROM kheina.public.user_badge
 				WHERE user_id = %s
 					AND badge_id = %s;
-			"""
+			""",
 			(user.user_id, badge_id),
 			commit=True,
 		)
@@ -413,7 +413,7 @@ class Users(SqlInterface, Hashable) :
 			(emoji, label)
 			VALUES
 			(%s, %s);
-			"""
+			""",
 			(emoji, label),
 			commit=True,
 		)
