@@ -18,6 +18,11 @@ class SetMod(BaseModel) :
 	mod: bool
 
 
+class SetVerified(BaseModel) :
+	handle: str
+	verified: Verified
+
+
 class Follow(BaseModel) :
 	handle: str
 

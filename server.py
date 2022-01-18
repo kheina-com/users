@@ -1,5 +1,5 @@
+from models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
 from kh_common.server import NoContentResponse, Request, ServerApp
-from models import Badge, Follow, SetMod, UpdateSelf, User
 from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
 from typing import List
@@ -67,6 +67,13 @@ async def v1FetchUsers(req: Request) -> List[User] :
 async def v1SetMod(req: Request, body: SetMod) -> None :
 	await req.user.verify_scope(Scope.admin)
 	users.setMod(body.handle, body.mod)
+	return NoContentResponse
+
+
+@app.post('/v1/set_verified', responses={ 204: { 'model': None } }, status_code=204)
+async def v1CreateBadge(req: Request, body: SetVerified) -> None :
+	await req.user.verify_scope(Scope.admin)
+	await users.verifyUser(body.handle, body.verified)
 	return NoContentResponse
 
 

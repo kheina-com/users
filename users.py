@@ -375,7 +375,7 @@ class Users(SqlInterface, Hashable) :
 		badge_id = self._get_reverse_badge_map().get((emoji, label))
 
 		if not badge_id :
-			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
+			raise UnprocessableEntity(f'badge with emoji "{emoji}" and label "{label}" was not found.')
 
 		await self.query_async("""
 			INSERT INTO kheina.public.user_badge
@@ -394,7 +394,7 @@ class Users(SqlInterface, Hashable) :
 		badge_id = self._get_reverse_badge_map().get((emoji, label))
 
 		if not badge_id :
-			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
+			raise UnprocessableEntity(f'badge with emoji "{emoji}" and label "{label}" was not found.')
 
 		await self.query_async("""
 			DELETE FROM kheina.public.user_badge
@@ -415,5 +415,17 @@ class Users(SqlInterface, Hashable) :
 			(%s, %s);
 			""",
 			(emoji, label),
+			commit=True,
+		)
+
+
+	@HttpErrorHandler('verifying user')
+	async def verifyUser(self, handle: str, verified: Verified) -> None :
+		await self.query_async(f"""
+			UPDATE kheina.public.users
+				set {'verified' if verified == Verified.artist else verified.name} = true
+			WHERE LOWER(handle) = %s;
+			""",
+			(handle.lower(),),
 			commit=True,
 		)
