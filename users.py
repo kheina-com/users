@@ -62,7 +62,7 @@ class Users(SqlInterface, Hashable) :
 
 	@SimpleCache(600)
 	def _get_reverse_badge_map(self) -> Dict[Badge, int] :
-		return { badge: id for id, badge in self._get_badge_map().items() }
+		return { (badge.emoji, badge.label): id for id, badge in self._get_badge_map().items() }
 
 
 	@ArgsCache(10)
@@ -372,7 +372,7 @@ class Users(SqlInterface, Hashable) :
 	@ArgsCache(30)
 	@HttpErrorHandler('adding badge to self')
 	async def addBadge(self, user: KhUser, emoji: str, label: str) -> None :
-		badge_id = self._get_reverse_badge_map().get(Badge(emoji=emoji, label=label))
+		badge_id = self._get_reverse_badge_map().get((emoji, label))
 
 		if not badge_id :
 			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
@@ -391,7 +391,7 @@ class Users(SqlInterface, Hashable) :
 	@ArgsCache(30)
 	@HttpErrorHandler('removing badge from self')
 	async def removeBadge(self, user: KhUser, emoji: str, label: str) -> None :
-		badge_id = self._get_reverse_badge_map().get(Badge(emoji=emoji, label=label))
+		badge_id = self._get_reverse_badge_map().get((emoji, label))
 
 		if not badge_id :
 			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
