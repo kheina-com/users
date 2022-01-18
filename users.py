@@ -1,4 +1,4 @@
-from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
+from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
 from kh_common.caching import ArgsCache, SimpleCache
 from kh_common.models.privacy import UserPrivacy
 from kh_common.models.verified import Verified
@@ -39,7 +39,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@SimpleCache(600)
-	def _get_privacy_map(self) -> Dict[str, str] :
+	def _get_privacy_map(self) -> Dict[str, UserPrivacy] :
 		data = self.query("""
 			SELECT privacy_id, type
 			FROM kheina.public.privacy;
@@ -50,7 +50,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@SimpleCache(600)
-	def _get_badge_map(self) -> Dict[str, str] :
+	def _get_badge_map(self) -> Dict[int, Badge] :
 		data = self.query("""
 			SELECT badge_id, emoji, label
 			FROM kheina.public.badges;
@@ -58,6 +58,11 @@ class Users(SqlInterface, Hashable) :
 			fetch_all=True,
 		)
 		return { x[0]: Badge(emoji=x[1], label=x[2]) for x in data }
+
+
+	@SimpleCache(600)
+	def _get_reverse_badge_map(self) -> Dict[Badge, int] :
+		return { badge: id for id, badge in self._get_badge_map().items() }
 
 
 	@ArgsCache(10)
@@ -360,5 +365,55 @@ class Users(SqlInterface, Hashable) :
 			WHERE handle = %s
 			""",
 			(mod, handle),
+			commit=True,
+		)
+
+
+	@ArgsCache(30)
+	@HttpErrorHandler('adding badge to self')
+	async def addBadge(self, user: KhUser, emoji: str, label: str) -> None :
+		badge_id = self._get_reverse_badge_map().get(Badge(emoji=emoji, label=label))
+
+		if not badge_id :
+			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
+
+		await self.query_async("""
+			INSERT INTO kheina.public.user_badge
+			(user_id, badge_id)
+			VALUES
+			(%s, %s);
+			"""
+			(user.user_id, badge_id),
+			commit=True,
+		)
+
+
+	@ArgsCache(30)
+	@HttpErrorHandler('removing badge from self')
+	async def removeBadge(self, user: KhUser, emoji: str, label: str) -> None :
+		badge_id = self._get_reverse_badge_map().get(Badge(emoji=emoji, label=label))
+
+		if not badge_id :
+			raise UnprocessableEntity(f'badge with emoji {emoji} and label {label} was not found.')
+
+		await self.query_async("""
+			DELETE FROM kheina.public.user_badge
+				WHERE user_id = %s
+					AND badge_id = %s;
+			"""
+			(user.user_id, badge_id),
+			commit=True,
+		)
+
+
+	@HttpErrorHandler('creating badge')
+	async def createBadge(self, emoji: str, label: str) -> None :
+		await self.query_async("""
+			INSERT INTO kheina.public.badges
+			(emoji, label)
+			VALUES
+			(%s, %s);
+			"""
+			(emoji, label),
 			commit=True,
 		)

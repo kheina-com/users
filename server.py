@@ -1,5 +1,5 @@
 from kh_common.server import NoContentResponse, Request, ServerApp
-from models import Follow, SetMod, UpdateSelf, User
+from models import Badge, Follow, SetMod, UpdateSelf, User
 from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
 from typing import List
@@ -67,6 +67,27 @@ async def v1FetchUsers(req: Request) -> List[User] :
 async def v1SetMod(req: Request, body: SetMod) -> None :
 	await req.user.verify_scope(Scope.admin)
 	users.setMod(body.handle, body.mod)
+	return NoContentResponse
+
+
+@app.post('/v1/add_badge', responses={ 204: { 'model': None } }, status_code=204)
+async def v1AddBadge(req: Request, body: Badge) -> None :
+	await req.user.authenticated()
+	await users.addBadge(req.user, body.emoji, body.label)
+	return NoContentResponse
+
+
+@app.post('/v1/remove_badge', responses={ 204: { 'model': None } }, status_code=204)
+async def v1RemoveBadge(req: Request, body: Badge) -> None :
+	await req.user.authenticated()
+	await users.removeBadge(req.user, body.emoji, body.label)
+	return NoContentResponse
+
+
+@app.post('/v1/create_badge', responses={ 204: { 'model': None } }, status_code=204)
+async def v1CreateBadge(req: Request, body: Badge) -> None :
+	await req.user.verify_scope(Scope.admin)
+	await users.createBadge(body.emoji, body.label)
 	return NoContentResponse
 
 
