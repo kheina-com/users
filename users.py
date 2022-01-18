@@ -4,9 +4,9 @@ from kh_common.models.privacy import UserPrivacy
 from kh_common.models.verified import Verified
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
+from typing import Dict, List, Set
 from kh_common.auth import KhUser
 from models import Badge, User
-from typing import Dict, Set
 
 
 class Users(SqlInterface, Hashable) :
@@ -367,6 +367,11 @@ class Users(SqlInterface, Hashable) :
 			(mod, handle),
 			commit=True,
 		)
+
+
+	@ArgsCache(60)
+	async def fetchBadges(self) -> List[Badge] :
+		return list(self._get_badge_map().values())
 
 
 	@ArgsCache(30)

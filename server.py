@@ -77,6 +77,11 @@ async def v1CreateBadge(req: Request, body: SetVerified) -> None :
 	return NoContentResponse
 
 
+@app.get('/v1/badges', responses={ 200: { 'model': List[Badge] } })
+async def v1Badges() -> List[Badge] :
+	return await users.fetchBadges()
+
+
 @app.post('/v1/add_badge', responses={ 204: { 'model': None } }, status_code=204)
 async def v1AddBadge(req: Request, body: Badge) -> None :
 	await req.user.authenticated()
