@@ -71,7 +71,7 @@ async def v1SetMod(req: Request, body: SetMod) -> None :
 
 
 @app.post('/v1/set_verified', responses={ 204: { 'model': None } }, status_code=204)
-async def v1CreateBadge(req: Request, body: SetVerified) -> None :
+async def v1Verify(req: Request, body: SetVerified) -> None :
 	await req.user.verify_scope(Scope.admin)
 	await users.verifyUser(body.handle, body.verified)
 	return NoContentResponse

@@ -103,7 +103,7 @@ class Users(SqlInterface, Hashable) :
 			FROM kheina.public.users
 				LEFT JOIN kheina.public.user_badge
 					ON user_badge.user_id = users.user_id
-			WHERE lower(users.handle) = %s
+			WHERE lower(users.handle) = lower(%s)
 			GROUP BY
 				users.handle,
 				users.display_name,
