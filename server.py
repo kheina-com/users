@@ -1,8 +1,10 @@
-from models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
-from kh_common.server import NoContentResponse, Request, ServerApp
+from typing import List
+
 from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
-from typing import List
+from kh_common.server import NoContentResponse, Request, ServerApp
+
+from models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
 from users import Users
 
 

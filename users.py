@@ -1,11 +1,13 @@
-from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
+from typing import Dict, List, Set
+
+from kh_common.auth import KhUser
 from kh_common.caching import ArgsCache, SimpleCache
+from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
+from kh_common.hashing import Hashable
 from kh_common.models.privacy import UserPrivacy
 from kh_common.models.verified import Verified
-from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
-from typing import Dict, List, Set
-from kh_common.auth import KhUser
+
 from models import Badge, User
 
 
@@ -270,11 +272,6 @@ class Users(SqlInterface, Hashable) :
 		if privacy is not None :
 			updates.append('privacy_id = privacy_to_id(%s)')
 			params.append(privacy.name)
-
-		if icon is not None :
-			self._validatePostId(icon)
-			updates.append('icon = %s')
-			params.append(icon)
 
 		if website is not None :
 			website = self._validateText(website)
