@@ -4,7 +4,8 @@ from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
 from kh_common.server import NoContentResponse, Request, ServerApp
 
-from models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
+from fuzzly_users.models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
+from fuzzly_users.internal import InternalUser
 from users import Users
 
 
@@ -35,9 +36,17 @@ async def shutdown() :
 	users.close()
 
 
+################################################## INTERNAL ##################################################
+@app.get('/i1/user/{user_id}', responses={ 200: { 'model': InternalUser } })
+async def i1User(req: Request, user_id: int) :
+	await req.user.verify_user(Scope.internal)
+	return await users._get_user(user_id)
+
+
+##################################################  PUBLIC  ##################################################
 @app.get('/v1/fetch_user/{handle}', responses={ 200: { 'model': User } })
-@KwargsCache(5)
-async def v1FetchUser(req: Request, handle: str) :
+@app.get('/v1/user/{handle}', responses={ 200: { 'model': User } })
+async def v1User(req: Request, handle: str) :
 	return users.getUser(req.user, handle)
 
 

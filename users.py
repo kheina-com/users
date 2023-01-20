@@ -1,14 +1,14 @@
-from typing import Dict, List, Set
+from asyncio import ensure_future
+from typing import Dict, List, Optional, Set
 
 from kh_common.auth import KhUser
-from kh_common.caching import ArgsCache, SimpleCache
+from kh_common.caching import ArgsCache, AerospikeCache, SimpleCache
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
 from kh_common.hashing import Hashable
-from kh_common.models.privacy import UserPrivacy
-from kh_common.models.verified import Verified
 from kh_common.sql import SqlInterface
 
-from models import Badge, User
+from fuzzly_users.models import User, UserPrivacy, Verified, Badge
+from fuzzly_users.internal import InternalUser
 
 
 class Users(SqlInterface, Hashable) :
@@ -21,11 +21,6 @@ class Users(SqlInterface, Hashable) :
 	def _cleanText(self, text: str) -> str :
 		text = text.strip()
 		return text if text else None
-
-
-	def _validatePostId(self, post_id: str) :
-		if len(post_id) != 8 :
-			raise BadRequest('the given post id is invalid.', post_id=post_id)
 
 
 	def _validateDescription(self, description: str) :
@@ -86,10 +81,11 @@ class Users(SqlInterface, Hashable) :
 		return set(map(lambda x : x[0].lower(), data))
 
 
-	@ArgsCache(5)
-	def _get_user(self, handle: str) -> Dict[str, str] :
-		data = self.query("""
+	@AerospikeCache('kheina', 'users', '{user_id}', local_TTL=60)
+	async def _get_user(self, user_id: int) -> InternalUser :
+		data = await self.query_async("""
 			SELECT
+				users.user_id,
 				users.display_name,
 				users.handle,
 				users.privacy_id,
@@ -98,165 +94,132 @@ class Users(SqlInterface, Hashable) :
 				users.created_on,
 				users.description,
 				users.banner,
-				users.mod,
 				users.admin,
+				users.mod,
 				users.verified,
 				array_agg(user_badge.badge_id)
 			FROM kheina.public.users
 				LEFT JOIN kheina.public.user_badge
 					ON user_badge.user_id = users.user_id
-			WHERE lower(users.handle) = lower(%s)
+			WHERE user.user_id = %s
 			GROUP BY
-				users.handle,
-				users.display_name,
-				users.privacy_id,
-				users.icon,
-				users.website,
-				users.created_on,
-				users.description,
-				users.banner,
-				users.mod,
-				users.admin,
-				users.verified;
+				users.user_id;
+			""",
+			(user_id,),
+			fetch_one=True,
+		)
+
+		if not data :
+			raise NotFound('no data was found for the provided user.')
+
+		verified: Optional[Verified] = None
+
+		if data[9] :
+			verified = Verified.admin
+
+		elif data[10] :
+			verified = Verified.mod
+
+		elif data[11] :
+			verified = Verified.artist
+
+		return InternalUser(
+			user_id = data[0],
+			name = data[1],
+			handle = data[2],
+			privacy = self._get_privacy_map()[data[3]],
+			icon = data[4],
+			website = data[5],
+			created = data[6],
+			description = data[7],
+			banner = data[8],
+			verified = verified,
+			badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
+		)
+
+
+	@AerospikeCache('kheina', 'user_handle_map', '{handle}', local_TTL=60)
+	async def _handle_to_user_id(self: 'Users', handle: str) -> int :
+		data = await self.query_async("""
+			SELECT
+				users.user_id
+			FROM kheina.public.users
+			WHERE lower(users.handle) = lower(%s);
 			""",
 			(handle.lower(),),
 			fetch_one=True,
 		)
 
-		if data :
-			verified = None
-
-			if data[9] :
-				verified = Verified.admin
-
-			elif data[8] :
-				verified = Verified.mod
-
-			elif data[10] :
-				verified = Verified.artist
-
-			return {
-				'name': data[0],
-				'handle': data[1],
-				'privacy': self._get_privacy_map()[data[2]],
-				'icon': data[3],
-				'banner': data[7],
-				'website': data[4],
-				'created': data[5],
-				'description': data[6],
-				'verified': verified,
-				'badges': list(filter(None, map(self._get_badge_map().get, data[11]))),
-			}
-
-		else :
+		if not data :
 			raise NotFound('no data was found for the provided user.')
+
+		return data[0]
+
+
+	async def _get_user_by_handle(self: 'Users', handle: str) -> InternalUser :
+		user_id: int = await self._handle_to_user_id(handle)
+		return await self._get_user(user_id)
+
+
+	@AerospikeCache('kheina', 'following', '{user_id}|{target}')
+	async def _following(self: 'Users', user_id: int, target: int) -> bool :
+		"""
+		returns true if the user specified by user_id is following the user specified by target
+		"""
+
+		data = await self.query_async("""
+			SELECT count(1)
+			FROM kheina.public.following
+			WHERE following.user_id = %s
+				AND following.follows = %s;
+			""",
+			(user_id, target),
+			fetch_all=True,
+		)
+
+		if not data :
+			return False
+
+		return bool(data[0])
 
 
 	@HttpErrorHandler('retrieving user')
-	def getUser(self, user: KhUser, handle: str) -> User :
-		return User(
-			following = handle.lower() in self._get_followers(user.user_id),
-			**self._get_user(handle),
-		)
+	async def getUser(self, user: KhUser, handle: str) -> User :
+		iuser: InternalUser = await self._get_user_by_handle(handle)
+		return await iuser.user(user)
 
 
 	@ArgsCache(5)
-	def followUser(self, user: KhUser, handle: str) -> None :
-		self.query("""
+	async def followUser(self, user: KhUser, handle: str) -> None :
+		user_id: int = await self._handle_to_user_id(handle)
+		await self.query_async("""
 			INSERT INTO kheina.public.following
 			(user_id, follows)
-			SELECT
-				%s,
-				users.user_id
-			FROM kheina.public.users
-			WHERE lower(users.handle) = %s;
+			VALUES
+			(%s, %s);
 			""",
-			(
-				user.user_id,
-				handle.lower(),
-			),
+			(user.user_id, user_id),
 			commit=True,
 		)
 
 
 	@ArgsCache(5)
-	def unfollowUser(self, user: KhUser, handle: str) -> None :
-		self.query("""
+	async def unfollowUser(self, user: KhUser, handle: str) -> None :
+		user_id: int = await self._handle_to_user_id(handle)
+		await self.query_async("""
 			DELETE FROM kheina.public.following
-				USING kheina.public.users
 			WHERE following.user_id = %s
-				AND lower(users.handle) = %s
+				AND following.follows = %s
 			""",
-			(
-				user.user_id,
-				handle.lower(),
-			),
+			(user.user_id, user_id),
 			commit=True,
 		)
 
 
-	@ArgsCache(5)
 	@HttpErrorHandler("retrieving user's own profile")
-	def getSelf(self, user: KhUser) -> Dict[str, str] :
-		data = self.query("""
-			SELECT
-				users.display_name,
-				users.handle,
-				users.privacy_id,
-				users.icon,
-				users.website,
-				users.created_on,
-				users.description,
-				users.banner,
-				users.mod,
-				users.admin,
-				users.verified,
-				array_agg(user_badge.badge_id)
-			FROM kheina.public.users
-				LEFT JOIN kheina.public.user_badge
-					ON user_badge.user_id = users.user_id
-			WHERE users.user_id = %s
-			GROUP BY
-				users.user_id,
-				users.handle,
-				users.display_name,
-				users.privacy_id,
-				users.icon,
-				users.website,
-				users.created_on,
-				users.description,
-				users.banner,
-				users.mod,
-				users.admin,
-				users.verified;
-			""",
-			(user.user_id,),
-			fetch_one=True,
-		)
-
-		verified = None
-
-		if data[9] :
-			verified = Verified.admin
-
-		elif data[8] :
-			verified = Verified.mod
-
-		elif data[10] :
-			verified = Verified.artist
-
-		return User(
-			name = data[0],
-			handle = data[1],
-			privacy = self._get_privacy_map()[data[2]],
-			icon = data[3],
-			banner = data[7],
-			website = data[4],
-			created = data[5],
-			description = data[6],
-			verified = verified,
-			badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
-		)
+	async def getSelf(self, user: KhUser) -> User :
+		iuser: InternalUser = await self._get_user(user.user_id)
+		return await iuser.user()
 
 
 	@HttpErrorHandler('updating user profile')
@@ -355,8 +318,8 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('setting mod')
-	def setMod(self, handle: str, mod: bool) :
-		self.query("""
+	async def setMod(self, handle: str, mod: bool) :
+		await self.query_async("""
 			UPDATE kheina.public.users
 				SET mod = %s
 			WHERE handle = %s
