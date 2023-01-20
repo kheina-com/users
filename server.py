@@ -38,7 +38,7 @@ async def shutdown() :
 ################################################## INTERNAL ##################################################
 @app.get('/i1/user/{user_id}', response_model=InternalUser)
 async def i1User(req: Request, user_id: int) :
-	await req.user.verify_user(Scope.internal)
+	await req.user.verify_scope(Scope.internal)
 	return await users._get_user(user_id)
 
 
