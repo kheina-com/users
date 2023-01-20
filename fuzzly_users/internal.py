@@ -9,11 +9,15 @@ from kh_common.sql import SqlInterface
 from pydantic import BaseModel, validator
 
 from fuzzly_users.models import Badge, User, UserPortable, UserPrivacy, Verified, _post_id_converter
+from kh_common.caching.key_value_store import KeyValueStore
+
+
+FollowKVS: KeyValueStore = KeyValueStore('kheina', 'following')
 
 
 class Following(SqlInterface) :
 
-	@AerospikeCache('kheina', 'following', '{user_id}|{target}')
+	@AerospikeCache('kheina', 'following', '{user_id}|{target}', _kvs=FollowKVS)
 	async def following(self: 'Following', user_id: int, target: int) -> bool :
 		"""
 		returns true if the user specified by user_id is following the user specified by target

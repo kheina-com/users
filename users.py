@@ -1,4 +1,4 @@
-from asyncio import ensure_future
+from asyncio import Task, ensure_future
 from typing import Dict, List, Optional, Set
 
 from kh_common.auth import KhUser
@@ -7,36 +7,40 @@ from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFou
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 
-from fuzzly_users.internal import InternalUser
+from fuzzly_users.internal import InternalUser, FollowKVS
 from fuzzly_users.models import Badge, User, UserPrivacy, Verified
+from kh_common.caching.key_value_store import KeyValueStore
+
+
+UserKVS: KeyValueStore = KeyValueStore('kheina', 'users', local_TTL=60)
 
 
 class Users(SqlInterface, Hashable) :
 
-	def __init__(self) :
+	def __init__(self: 'Users') :
 		Hashable.__init__(self)
 		SqlInterface.__init__(self)
 
 
-	def _cleanText(self, text: str) -> str :
+	def _cleanText(self: 'Users', text: str) -> str :
 		text = text.strip()
 		return text if text else None
 
 
-	def _validateDescription(self, description: str) :
+	def _validateDescription(self: 'Users', description: str) :
 		if len(description) > 10000 :
 			raise BadRequest('the given description is over the 10,000 character limit.', description=description)
 		return self._cleanText(description)
 
 
-	def _validateText(self, text: str) :
+	def _validateText(self: 'Users', text: str) :
 		if len(text) > 100 :
 			raise BadRequest('the given value is over the 100 character limit.', text=text)
 		return self._cleanText(text)
 
 
 	@SimpleCache(600)
-	def _get_privacy_map(self) -> Dict[str, UserPrivacy] :
+	def _get_privacy_map(self: 'Users') -> Dict[str, UserPrivacy] :
 		data = self.query("""
 			SELECT privacy_id, type
 			FROM kheina.public.privacy;
@@ -47,7 +51,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	@SimpleCache(600)
-	def _get_badge_map(self) -> Dict[int, Badge] :
+	def _get_badge_map(self: 'Users') -> Dict[int, Badge] :
 		data = self.query("""
 			SELECT badge_id, emoji, label
 			FROM kheina.public.badges;
@@ -58,16 +62,16 @@ class Users(SqlInterface, Hashable) :
 
 
 	@SimpleCache(600)
-	def _get_reverse_badge_map(self) -> Dict[Badge, int] :
-		return { (badge.emoji, badge.label): id for id, badge in self._get_badge_map().items() }
+	def _get_reverse_badge_map(self: 'Users') -> Dict[Badge, int] :
+		return { badge: id for id, badge in self._get_badge_map().items() }
 
 
 	@ArgsCache(10)
-	def _get_followers(self, user_id) -> Set[str] :
+	async def _get_followers(self: 'Users', user_id) -> Set[str] :
 		if not user_id :
 			return set()
 
-		data = self.query("""
+		data = await self.query_async("""
 			SELECT
 				users.handle
 			FROM kheina.public.following
@@ -81,7 +85,7 @@ class Users(SqlInterface, Hashable) :
 		return set(map(lambda x : x[0].lower(), data))
 
 
-	@AerospikeCache('kheina', 'users', '{user_id}', local_TTL=60)
+	@AerospikeCache('kheina', 'users', '{user_id}', _kvs=UserKVS)
 	async def _get_user(self, user_id: int) -> InternalUser :
 		data = await self.query_async("""
 			SELECT
@@ -162,14 +166,18 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('retrieving user')
-	async def getUser(self, user: KhUser, handle: str) -> User :
+	async def getUser(self: 'Users', user: KhUser, handle: str) -> User :
 		iuser: InternalUser = await self._get_user_by_handle(handle)
 		return await iuser.user(user)
 
 
-	@ArgsCache(5)
-	async def followUser(self, user: KhUser, handle: str) -> None :
+	async def followUser(self: 'Users', user: KhUser, handle: str) -> None :
 		user_id: int = await self._handle_to_user_id(handle)
+		following: bool = await FollowKVS.get_async(f'{user.user_id}|{user_id}')
+
+		if following :
+			raise BadRequest('you are already following this user.')
+
 		await self.query_async("""
 			INSERT INTO kheina.public.following
 			(user_id, follows)
@@ -180,10 +188,16 @@ class Users(SqlInterface, Hashable) :
 			commit=True,
 		)
 
+		FollowKVS.put(f'{user.user_id}|{user_id}', True)
 
-	@ArgsCache(5)
-	async def unfollowUser(self, user: KhUser, handle: str) -> None :
+
+	async def unfollowUser(self: 'Users', user: KhUser, handle: str) -> None :
 		user_id: int = await self._handle_to_user_id(handle)
+		following: bool = await FollowKVS.get_async(f'{user.user_id}|{user_id}')
+
+		if following == False :
+			raise BadRequest('you are already not following this user.')
+
 		await self.query_async("""
 			DELETE FROM kheina.public.following
 			WHERE following.user_id = %s
@@ -193,15 +207,18 @@ class Users(SqlInterface, Hashable) :
 			commit=True,
 		)
 
+		FollowKVS.put(f'{user.user_id}|{user_id}', False)
+
 
 	@HttpErrorHandler("retrieving user's own profile")
-	async def getSelf(self, user: KhUser) -> User :
+	async def getSelf(self: 'Users', user: KhUser) -> User :
 		iuser: InternalUser = await self._get_user(user.user_id)
-		return await iuser.user()
+		return await iuser.user(user)
 
 
 	@HttpErrorHandler('updating user profile')
-	def updateSelf(self, user: KhUser, name: str, privacy: UserPrivacy, icon: str, website: str, description: str) :
+	async def updateSelf(self: 'Users', user: KhUser, name: str, privacy: UserPrivacy, website: str, description: str) :
+		iuser: InternalUser = await self._get_user(user.user_id)
 		updates = []
 		params = []
 
@@ -209,20 +226,24 @@ class Users(SqlInterface, Hashable) :
 			name = self._validateText(name)
 			updates.append('display_name = %s')
 			params.append(name)
+			iuser.name = name
 
 		if privacy is not None :
 			updates.append('privacy_id = privacy_to_id(%s)')
 			params.append(privacy.name)
+			iuser.privacy = privacy
 
 		if website is not None :
 			website = self._validateText(website)
 			updates.append('website = %s')
 			params.append(website)
+			iuser.website = website
 
 		if description is not None :
 			description = self._validateDescription(description)
 			updates.append('description = %s')
 			params.append(description)
+			iuser.description = description
 
 		if updates :
 			query = f"""
@@ -237,10 +258,13 @@ class Users(SqlInterface, Hashable) :
 		else :
 			raise BadRequest('At least one of the following are required: name, handle, privacy, icon, website, description.')
 
+		UserKVS.put(str(user.user_id), user)
+
 
 	@HttpErrorHandler('fetching all users')
-	def getUsers(self, user: KhUser) :
-		data = self.query("""
+	async def getUsers(self: 'Users', user: KhUser) :
+		# TODO: this function desperately needs to be reworked
+		data = await self.query_async("""
 			SELECT
 				users.display_name,
 				users.handle,
@@ -283,7 +307,7 @@ class Users(SqlInterface, Hashable) :
 				website = row[4],
 				created = row[5],
 				description = row[6],
-				following = row[1].lower() in self._get_followers(user.user_id),
+				following = row[1].lower() in await self._get_followers(user.user_id),
 				badges = list(filter(None, map(self._get_badge_map().get, row[11]))),
 				verified = Verified.admin if row[9] else (
 					Verified.mod if row[8] else (
@@ -296,29 +320,43 @@ class Users(SqlInterface, Hashable) :
 
 
 	@HttpErrorHandler('setting mod')
-	async def setMod(self, handle: str, mod: bool) :
+	async def setMod(self: 'Users', handle: str, mod: bool) -> None :
+		user_id: int = await self._handle_to_user_id(handle)
+		user: Task[InternalUser] = ensure_future(self._get_user(user_id))
+
 		await self.query_async("""
 			UPDATE kheina.public.users
 				SET mod = %s
-			WHERE handle = %s
+			WHERE users.user_id = %s
 			""",
-			(mod, handle),
+			(mod, user_id),
 			commit=True,
 		)
 
+		user: Optional[InternalUser] = await user
+		if user :
+			user.verified = Verified.mod
+			UserKVS.put(str(user_id), user)
 
-	@ArgsCache(60)
-	async def fetchBadges(self) -> List[Badge] :
+
+	@SimpleCache(60)
+	async def fetchBadges(self: 'Users') -> List[Badge] :
 		return list(self._get_badge_map().values())
 
 
 	@ArgsCache(30)
 	@HttpErrorHandler('adding badge to self')
-	async def addBadge(self, user: KhUser, emoji: str, label: str) -> None :
-		badge_id = self._get_reverse_badge_map().get((emoji, label))
+	async def addBadge(self: 'Users', user: KhUser, badge: Badge) -> None :
+		iuser: Task[InternalUser] = ensure_future(self._get_user(user.user_id))
+		badge_id: int = self._get_reverse_badge_map().get(badge)
 
 		if not badge_id :
-			raise UnprocessableEntity(f'badge with emoji "{emoji}" and label "{label}" was not found.')
+			raise NotFound(f'badge with emoji "{badge.emoji}" and label "{badge.label}" does not exist.')
+
+		iuser: InternalUser = await iuser
+
+		if len(iuser.badges) >= 3 :
+			raise BadRequest(f'user already has the maximum amount of badges allowed.')
 
 		await self.query_async("""
 			INSERT INTO kheina.public.user_badge
@@ -330,14 +368,26 @@ class Users(SqlInterface, Hashable) :
 			commit=True,
 		)
 
+		iuser.badges.append(badge)
+		UserKVS.put(str(user.user_id), iuser)
+
 
 	@ArgsCache(30)
 	@HttpErrorHandler('removing badge from self')
-	async def removeBadge(self, user: KhUser, emoji: str, label: str) -> None :
-		badge_id = self._get_reverse_badge_map().get((emoji, label))
+	async def removeBadge(self: 'Users', user: KhUser, badge: Badge) -> None :
+		iuser: Task[InternalUser] = ensure_future(self._get_user(user.user_id))
+		badge_id: int = self._get_reverse_badge_map().get(badge)
 
 		if not badge_id :
-			raise UnprocessableEntity(f'badge with emoji "{emoji}" and label "{label}" was not found.')
+			raise NotFound(f'badge with emoji "{badge.emoji}" and label "{badge.label}" does not exist.')
+
+		iuser: InternalUser = await iuser
+
+		try :
+			iuser.badges.remove(badge)
+
+		except ValueError :
+			raise BadRequest(f'user does not have that badge.')
 
 		await self.query_async("""
 			DELETE FROM kheina.public.user_badge
@@ -348,27 +398,37 @@ class Users(SqlInterface, Hashable) :
 			commit=True,
 		)
 
+		UserKVS.put(str(user.user_id), iuser)
+
 
 	@HttpErrorHandler('creating badge')
-	async def createBadge(self, emoji: str, label: str) -> None :
+	async def createBadge(self: 'Users', badge: Badge) -> None :
 		await self.query_async("""
 			INSERT INTO kheina.public.badges
 			(emoji, label)
 			VALUES
 			(%s, %s);
 			""",
-			(emoji, label),
+			(badge.emoji, badge.label),
 			commit=True,
 		)
 
 
 	@HttpErrorHandler('verifying user')
-	async def verifyUser(self, handle: str, verified: Verified) -> None :
+	async def verifyUser(self: 'Users', handle: str, verified: Verified) -> None :
+		user_id: int = await self._handle_to_user_id(handle)
+		user: Task[InternalUser] = ensure_future(self._get_user(user_id))
+
 		await self.query_async(f"""
 			UPDATE kheina.public.users
 				set {'verified' if verified == Verified.artist else verified.name} = true
-			WHERE LOWER(handle) = %s;
+			WHERE users.user_id = %s;
 			""",
-			(handle.lower(),),
+			(user_id,),
 			commit=True,
 		)
+
+		user: Optional[InternalUser] = await user
+		if user :
+			user.verified = verified
+			UserKVS.put(str(user_id), user)
