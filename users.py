@@ -161,7 +161,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	async def _get_user_by_handle(self: 'Users', handle: str) -> InternalUser :
-		user_id: int = await self._handle_to_user_id(handle)
+		user_id: int = await self._handle_to_user_id(handle.lower())
 		return await self._get_user(user_id)
 
 
@@ -172,7 +172,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	async def followUser(self: 'Users', user: KhUser, handle: str) -> None :
-		user_id: int = await self._handle_to_user_id(handle)
+		user_id: int = await self._handle_to_user_id(handle.lower())
 		following: bool = await FollowKVS.get_async(f'{user.user_id}|{user_id}')
 
 		if following :
@@ -192,7 +192,7 @@ class Users(SqlInterface, Hashable) :
 
 
 	async def unfollowUser(self: 'Users', user: KhUser, handle: str) -> None :
-		user_id: int = await self._handle_to_user_id(handle)
+		user_id: int = await self._handle_to_user_id(handle.lower())
 		following: bool = await FollowKVS.get_async(f'{user.user_id}|{user_id}')
 
 		if following == False :
@@ -321,7 +321,7 @@ class Users(SqlInterface, Hashable) :
 
 	@HttpErrorHandler('setting mod')
 	async def setMod(self: 'Users', handle: str, mod: bool) -> None :
-		user_id: int = await self._handle_to_user_id(handle)
+		user_id: int = await self._handle_to_user_id(handle.lower())
 		user: Task[InternalUser] = ensure_future(self._get_user(user_id))
 
 		await self.query_async("""
@@ -416,7 +416,7 @@ class Users(SqlInterface, Hashable) :
 
 	@HttpErrorHandler('verifying user')
 	async def verifyUser(self: 'Users', handle: str, verified: Verified) -> None :
-		user_id: int = await self._handle_to_user_id(handle)
+		user_id: int = await self._handle_to_user_id(handle.lower())
 		user: Task[InternalUser] = ensure_future(self._get_user(user_id))
 
 		await self.query_async(f"""
