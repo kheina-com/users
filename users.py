@@ -3,13 +3,13 @@ from typing import Dict, List, Optional, Set
 
 from kh_common.auth import KhUser
 from kh_common.caching import AerospikeCache, ArgsCache, SimpleCache
-from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
+from kh_common.caching.key_value_store import KeyValueStore
+from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 
-from fuzzly_users.internal import InternalUser, FollowKVS
+from fuzzly_users.internal import FollowKVS, InternalUser
 from fuzzly_users.models import Badge, User, UserPrivacy, Verified
-from kh_common.caching.key_value_store import KeyValueStore
 
 
 UserKVS: KeyValueStore = KeyValueStore('kheina', 'users', local_TTL=60)
@@ -64,25 +64,6 @@ class Users(SqlInterface, Hashable) :
 	@SimpleCache(600)
 	def _get_reverse_badge_map(self: 'Users') -> Dict[Badge, int] :
 		return { badge: id for id, badge in self._get_badge_map().items() }
-
-
-	@ArgsCache(10)
-	async def _get_followers(self: 'Users', user_id) -> Set[str] :
-		if not user_id :
-			return set()
-
-		data = await self.query_async("""
-			SELECT
-				users.handle
-			FROM kheina.public.following
-				INNER JOIN kheina.public.users
-					ON users.user_id = following.follows
-			WHERE following.user_id = %s;
-			""",
-			(user_id,),
-			fetch_all=True,
-		)
-		return set(map(lambda x : x[0].lower(), data))
 
 
 	@AerospikeCache('kheina', 'users', '{user_id}', _kvs=UserKVS)
@@ -307,7 +288,6 @@ class Users(SqlInterface, Hashable) :
 				website = row[4],
 				created = row[5],
 				description = row[6],
-				following = row[1].lower() in await self._get_followers(user.user_id),
 				badges = list(filter(None, map(self._get_badge_map().get, row[11]))),
 				verified = Verified.admin if row[9] else (
 					Verified.mod if row[8] else (

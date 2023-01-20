@@ -5,11 +5,11 @@ from typing import List, Optional
 from fuzzly_posts.models import PostId
 from kh_common.auth import KhUser
 from kh_common.caching import AerospikeCache
+from kh_common.caching.key_value_store import KeyValueStore
 from kh_common.sql import SqlInterface
 from pydantic import BaseModel, validator
 
 from fuzzly_users.models import Badge, User, UserPortable, UserPrivacy, Verified, _post_id_converter
-from kh_common.caching.key_value_store import KeyValueStore
 
 
 FollowKVS: KeyValueStore = KeyValueStore('kheina', 'following')

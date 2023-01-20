@@ -1,9 +1,8 @@
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from aiohttp import ClientResponseError
-from fuzzly_posts.models import Post
 from kh_common.gateway import Gateway
 
 from fuzzly_users.constants import Host
