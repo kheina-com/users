@@ -6,6 +6,13 @@ from fuzzly_posts.models import PostId
 from pydantic import BaseModel, validator
 
 
+def _post_id_converter(value) :
+	if value :
+		return PostId(value)
+
+	return value
+
+
 @unique
 class UserPrivacy(Enum) :
 	public: str = 'public'
@@ -47,7 +54,7 @@ class Badge(BaseModel) :
 
 
 class UserPortable(BaseModel) :
-	_post_id_converter = validator('icon', pre=True, always=True, allow_reuse=True)(PostId)
+	_post_id_converter = validator('icon', pre=True, always=True, allow_reuse=True)(_post_id_converter)
 
 	name: str
 	handle: str
@@ -58,7 +65,7 @@ class UserPortable(BaseModel) :
 
 
 class User(BaseModel) :
-	_post_id_converter = validator('icon', 'banner', pre=True, always=True, allow_reuse=True)(PostId)
+	_post_id_converter = validator('icon', 'banner', pre=True, always=True, allow_reuse=True)(_post_id_converter)
 
 	name: str
 	handle: str
