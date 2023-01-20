@@ -134,7 +134,7 @@ class Users(SqlInterface, Hashable) :
 			description = data[7],
 			banner = data[8],
 			verified = verified,
-			badges = list(filter(None, map(self._get_badge_map().get, data[11]))),
+			badges = list(filter(None, map(self._get_badge_map().get, data[12]))),
 		)
 
 
