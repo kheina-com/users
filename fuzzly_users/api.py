@@ -1,15 +1,14 @@
 from functools import wraps
+from inspect import iscoroutinefunction
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from aiohttp import ClientResponseError
+from fuzzly_posts.models import Post
 from kh_common.gateway import Gateway
 
-from fuzzly_posts.models import Post
 from fuzzly_users.constants import Host
-from inspect import iscoroutinefunction
-from aiohttp import ClientResponseError
-
-from fuzzly_users.models import User
 from fuzzly_users.internal import InternalUser
+from fuzzly_users.models import User
 
 
 # this needs to be moved into kh_common

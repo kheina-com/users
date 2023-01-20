@@ -2,13 +2,13 @@ from asyncio import ensure_future
 from typing import Dict, List, Optional, Set
 
 from kh_common.auth import KhUser
-from kh_common.caching import ArgsCache, AerospikeCache, SimpleCache
+from kh_common.caching import AerospikeCache, ArgsCache, SimpleCache
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound, UnprocessableEntity
 from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 
-from fuzzly_users.models import User, UserPrivacy, Verified, Badge
 from fuzzly_users.internal import InternalUser
+from fuzzly_users.models import Badge, User, UserPrivacy, Verified
 
 
 class Users(SqlInterface, Hashable) :
@@ -159,28 +159,6 @@ class Users(SqlInterface, Hashable) :
 	async def _get_user_by_handle(self: 'Users', handle: str) -> InternalUser :
 		user_id: int = await self._handle_to_user_id(handle)
 		return await self._get_user(user_id)
-
-
-	@AerospikeCache('kheina', 'following', '{user_id}|{target}')
-	async def _following(self: 'Users', user_id: int, target: int) -> bool :
-		"""
-		returns true if the user specified by user_id is following the user specified by target
-		"""
-
-		data = await self.query_async("""
-			SELECT count(1)
-			FROM kheina.public.following
-			WHERE following.user_id = %s
-				AND following.follows = %s;
-			""",
-			(user_id, target),
-			fetch_all=True,
-		)
-
-		if not data :
-			return False
-
-		return bool(data[0])
 
 
 	@HttpErrorHandler('retrieving user')

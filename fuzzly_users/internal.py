@@ -1,14 +1,41 @@
 from asyncio import Task, ensure_future
-from fuzzly_users.models import User, UserPortable, UserPrivacy, Verified, Badge
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from fuzzly_posts.models import PostId
-from users import Users
 from kh_common.auth import KhUser
+from kh_common.caching import AerospikeCache
+from kh_common.sql import SqlInterface
+from pydantic import BaseModel
+
+from fuzzly_users.models import Badge, User, UserPortable, UserPrivacy, Verified
 
 
-users: Users = Users()
+class Following(SqlInterface) :
+
+	@AerospikeCache('kheina', 'following', '{user_id}|{target}')
+	async def following(self: 'Following', user_id: int, target: int) -> bool :
+		"""
+		returns true if the user specified by user_id is following the user specified by target
+		"""
+
+		data = await self.query_async("""
+			SELECT count(1)
+			FROM kheina.public.following
+			WHERE following.user_id = %s
+				AND following.follows = %s;
+			""",
+			(user_id, target),
+			fetch_all=True,
+		)
+
+		if not data :
+			return False
+
+		return bool(data[0])
+
+
+Follow: Following = Following()
 
 
 class InternalUser(BaseModel) :
@@ -25,7 +52,7 @@ class InternalUser(BaseModel) :
 	badges: List[Badge]
 
 	async def _following(self: 'InternalUser', user: KhUser) -> bool :
-		follow_task: Task[bool] = ensure_future(users._following(user.user_id, self.user_id))
+		follow_task: Task[bool] = ensure_future(Follow.following(user.user_id, self.user_id))
 		await user.authenticated()
 		return await follow_task
 
