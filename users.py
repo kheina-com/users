@@ -101,7 +101,7 @@ class Users(SqlInterface, Hashable) :
 			FROM kheina.public.users
 				LEFT JOIN kheina.public.user_badge
 					ON user_badge.user_id = users.user_id
-			WHERE user.user_id = %s
+			WHERE users.user_id = %s
 			GROUP BY
 				users.user_id;
 			""",
