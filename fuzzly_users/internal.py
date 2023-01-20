@@ -59,7 +59,10 @@ class InternalUser(BaseModel) :
 
 	async def _following(self: 'InternalUser', user: KhUser) -> bool :
 		follow_task: Task[bool] = ensure_future(Follow.following(user.user_id, self.user_id))
-		await user.authenticated()
+
+		if not await user.authenticated(raise_error=False) :
+			return None
+
 		return await follow_task
 
 	async def user(self: 'InternalUser', user: Optional[KhUser] = None) -> User :
