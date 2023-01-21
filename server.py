@@ -1,10 +1,10 @@
 from typing import List
 
-from kh_common.caching import KwargsCache
 from kh_common.models.auth import Scope
-from kh_common.server import NoContentResponse, Request, ServerApp
+from kh_common.server import Request, ServerApp
 
-from models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
+from fuzzly_users.internal import InternalUser
+from fuzzly_users.models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
 from users import Users
 
 
@@ -27,7 +27,7 @@ app = ServerApp(
 		'fuzz.ly',
 	],
 )
-users = Users()
+users: Users = Users()
 
 
 @app.on_event('shutdown')
@@ -35,92 +35,89 @@ async def shutdown() :
 	users.close()
 
 
-@app.get('/v1/fetch_user/{handle}', responses={ 200: { 'model': User } })
-@KwargsCache(5)
-async def v1FetchUser(req: Request, handle: str) :
-	return users.getUser(req.user, handle)
+################################################## INTERNAL ##################################################
+@app.get('/i1/user/{user_id}', response_model=InternalUser)
+async def i1User(req: Request, user_id: int) :
+	await req.user.verify_scope(Scope.internal)
+	return await users._get_user(user_id)
 
 
-@app.get('/v1/fetch_self', responses={ 200: { 'model': User } })
+##################################################  PUBLIC  ##################################################
+@app.get('/v1/fetch_user/{handle}', response_model=User)
+@app.get('/v1/user/{handle}', response_model=User)
+async def v1User(req: Request, handle: str) :
+	return await users.getUser(req.user, handle)
+
+
+@app.get('/v1/fetch_self', response_model=User)
 async def v1FetchSelf(req: Request) -> User :
 	await req.user.authenticated()
-	return users.getSelf(req.user)
+	return await users.getSelf(req.user)
 
 
-@app.post('/v1/update_self', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/update_self', status_code=204)
 async def v1UpdateSelf(req: Request, body: UpdateSelf) -> None :
 	await req.user.authenticated()
-
-	users.updateSelf(
+	await users.updateSelf(
 		req.user,
 		body.name,
 		body.privacy,
-		body.icon,
 		body.website,
 		body.description,
 	)
 
-	return NoContentResponse
 
-
-@app.post('/v1/follow_user', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/follow_user', status_code=204)
 async def v1FollowUser(req: Request, body: Follow) :
 	await req.user.authenticated()
-	users.followUser(req.user, body.handle)
-	return NoContentResponse
+	await users.followUser(req.user, body.handle)
 
 
-@app.post('/v1/unfollow_user', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/unfollow_user', status_code=204)
 async def v1UnfollowUser(req: Request, body: Follow) :
 	await req.user.authenticated()
-	users.unfollowUser(req.user, body.handle)
-	return NoContentResponse
+	await users.unfollowUser(req.user, body.handle)
 
 
-@app.get('/v1/all_users', responses={ 200: { 'model': List[User] } })
+@app.get('/v1/all_users', response_model=List[User])
 async def v1FetchUsers(req: Request) -> List[User] :
 	await req.user.verify_scope(Scope.admin)
 	return users.getUsers(req.user)
 
 
-@app.post('/v1/set_mod', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/set_mod', status_code=204)
 async def v1SetMod(req: Request, body: SetMod) -> None :
 	await req.user.verify_scope(Scope.admin)
-	users.setMod(body.handle, body.mod)
-	return NoContentResponse
+	await users.setMod(body.handle, body.mod)
 
 
-@app.post('/v1/set_verified', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/set_verified', status_code=204)
 async def v1Verify(req: Request, body: SetVerified) -> None :
 	await req.user.verify_scope(Scope.admin)
 	await users.verifyUser(body.handle, body.verified)
-	return NoContentResponse
 
 
-@app.get('/v1/badges', responses={ 200: { 'model': List[Badge] } })
+@app.get('/v1/badges', response_model=List[Badge])
 async def v1Badges() -> List[Badge] :
 	return await users.fetchBadges()
 
 
-@app.post('/v1/add_badge', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/add_badge', status_code=204)
 async def v1AddBadge(req: Request, body: Badge) -> None :
 	await req.user.authenticated()
-	await users.addBadge(req.user, body.emoji, body.label)
-	return NoContentResponse
+	await users.addBadge(req.user, body)
 
 
-@app.post('/v1/remove_badge', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/remove_badge', status_code=204)
 async def v1RemoveBadge(req: Request, body: Badge) -> None :
 	await req.user.authenticated()
-	await users.removeBadge(req.user, body.emoji, body.label)
-	return NoContentResponse
+	await users.removeBadge(req.user, body)
 
 
-@app.post('/v1/create_badge', responses={ 204: { 'model': None } }, status_code=204)
+@app.post('/v1/create_badge', status_code=204)
 async def v1CreateBadge(req: Request, body: Badge) -> None :
-	await req.user.verify_scope(Scope.admin)
-	await users.createBadge(body.emoji, body.label)
-	return NoContentResponse
+	await req.user.verify_scope(Scope.mod)
+	await users.createBadge(body)
 
 
 if __name__ == '__main__' :

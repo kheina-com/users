@@ -1,18 +1,29 @@
 from datetime import datetime
+from enum import Enum, unique
 from typing import List, Optional
 
-from kh_common.base64 import b64encode
-from kh_common.models.privacy import UserPrivacy
-from kh_common.models.verified import Verified
-from kh_common.utilities import int_to_bytes
+from fuzzly_posts.models import PostId
 from pydantic import BaseModel, validator
 
 
-def int_to_post_id(value: int) -> str :
-	if type(value) == int :
-		return b64encode(int.to_bytes(value, 6, 'big')).decode()
+def _post_id_converter(value) :
+	if value :
+		return PostId(value)
 
 	return value
+
+
+@unique
+class UserPrivacy(Enum) :
+	public: str = 'public'
+	private: str = 'private'
+
+
+@unique
+class Verified(Enum) :
+	artist: str = 'artist'
+	mod: str = 'mod'
+	admin: str = 'admin'
 
 
 class UpdateSelf(BaseModel) :
@@ -43,24 +54,24 @@ class Badge(BaseModel) :
 
 
 class UserPortable(BaseModel) :
-	_post_id_converter = validator('icon', pre=True, always=True, allow_reuse=True)(int_to_post_id)
+	_post_id_converter = validator('icon', pre=True, always=True, allow_reuse=True)(_post_id_converter)
 
 	name: str
 	handle: str
 	privacy: UserPrivacy
-	icon: Optional[str]
+	icon: Optional[PostId]
 	verified: Optional[Verified]
 	following: Optional[bool]
 
 
 class User(BaseModel) :
-	_post_id_converter = validator('icon', 'banner', pre=True, always=True, allow_reuse=True)(int_to_post_id)
+	_post_id_converter = validator('icon', 'banner', pre=True, always=True, allow_reuse=True)(_post_id_converter)
 
 	name: str
 	handle: str
 	privacy: UserPrivacy
-	icon: Optional[str]
-	banner: Optional[str]
+	icon: Optional[PostId]
+	banner: Optional[PostId]
 	website: Optional[str]
 	created: datetime
 	description: Optional[str]
