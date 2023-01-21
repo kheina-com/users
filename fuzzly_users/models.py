@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum, unique
-from typing import List, Optional
+from typing import List, Optional, NamedTuple
 
 from fuzzly_posts.models import PostId
 from pydantic import BaseModel, validator
@@ -48,7 +48,7 @@ class Follow(BaseModel) :
 	handle: str
 
 
-class Badge(BaseModel) :
+class Badge(NamedTuple) :
 	emoji: str
 	label: str
 

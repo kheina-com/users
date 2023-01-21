@@ -239,7 +239,7 @@ class Users(SqlInterface, Hashable) :
 		else :
 			raise BadRequest('At least one of the following are required: name, handle, privacy, icon, website, description.')
 
-		UserKVS.put(str(user.user_id), user)
+		UserKVS.put(str(user.user_id), iuser)
 
 
 	@HttpErrorHandler('fetching all users')
@@ -324,7 +324,6 @@ class Users(SqlInterface, Hashable) :
 		return list(self._get_badge_map().values())
 
 
-	@ArgsCache(30)
 	@HttpErrorHandler('adding badge to self')
 	async def addBadge(self: 'Users', user: KhUser, badge: Badge) -> None :
 		iuser: Task[InternalUser] = ensure_future(self._get_user(user.user_id))
@@ -352,7 +351,6 @@ class Users(SqlInterface, Hashable) :
 		UserKVS.put(str(user.user_id), iuser)
 
 
-	@ArgsCache(30)
 	@HttpErrorHandler('removing badge from self')
 	async def removeBadge(self: 'Users', user: KhUser, badge: Badge) -> None :
 		iuser: Task[InternalUser] = ensure_future(self._get_user(user.user_id))
