@@ -1,6 +1,6 @@
-from kh_common.gateway import Gateway
-from kh_common.client import Client
 from kh_common.caching import AerospikeCache
+from kh_common.client import Client
+from kh_common.gateway import Gateway
 
 from fuzzly_users.constants import Host
 from fuzzly_users.internal import InternalUser

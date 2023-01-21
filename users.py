@@ -2,10 +2,9 @@ from asyncio import Task, ensure_future
 from typing import Dict, List, Optional, Set
 
 from kh_common.auth import KhUser
-from kh_common.caching import AerospikeCache, ArgsCache, SimpleCache
+from kh_common.caching import AerospikeCache, SimpleCache
 from kh_common.caching.key_value_store import KeyValueStore
 from kh_common.exceptions.http_error import BadRequest, HttpErrorHandler, NotFound
-from kh_common.hashing import Hashable
 from kh_common.sql import SqlInterface
 
 from fuzzly_users.internal import FollowKVS, InternalUser
@@ -15,12 +14,7 @@ from fuzzly_users.models import Badge, User, UserPrivacy, Verified
 UserKVS: KeyValueStore = KeyValueStore('kheina', 'users', local_TTL=60)
 
 
-class Users(SqlInterface, Hashable) :
-
-	def __init__(self: 'Users') :
-		Hashable.__init__(self)
-		SqlInterface.__init__(self)
-
+class Users(SqlInterface) :
 
 	def _cleanText(self: 'Users', text: str) -> str :
 		text = text.strip()
