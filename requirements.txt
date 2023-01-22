@@ -1,4 +1,4 @@
 kh-common[aerospike,auth,logging,sql]~=0.6.7
 uvicorn~=0.11.6
 gunicorn~=20.1.0
-fuzzly_posts~=0.2.1
+fuzzly_posts~=0.2.3
