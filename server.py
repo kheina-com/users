@@ -28,12 +28,7 @@ app = ServerApp(
 	],
 )
 
-users: Users
-
-
-@app.on_event('startup')
-async def startup():
-	users = Users()
+users: Users = Users()
 
 
 @app.on_event('shutdown')
