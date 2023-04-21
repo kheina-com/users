@@ -1,10 +1,10 @@
 from typing import List
 
+from fuzzly.models.internal import InternalUser
+from fuzzly.models.user import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
 from kh_common.models.auth import Scope
 from kh_common.server import Request, ServerApp
 
-from fuzzly_users.internal import InternalUser
-from fuzzly_users.models import Badge, Follow, SetMod, SetVerified, UpdateSelf, User
 from users import Users
 
 
@@ -27,7 +27,13 @@ app = ServerApp(
 		'fuzz.ly',
 	],
 )
-users: Users = Users()
+
+users: Users
+
+
+@app.on_event('startup')
+async def startup():
+	users = Users()
 
 
 @app.on_event('shutdown')
