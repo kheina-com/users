@@ -83,7 +83,7 @@ async def v1UnfollowUser(req: Request, body: Follow) :
 @app.get('/v1/all_users', response_model=List[User])
 async def v1FetchUsers(req: Request) -> List[User] :
 	await req.user.verify_scope(Scope.admin)
-	return users.getUsers(req.user)
+	return await users.getUsers(req.user)
 
 
 @app.post('/v1/set_mod', status_code=204)
